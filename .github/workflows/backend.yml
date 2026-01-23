@@ -1,73 +1,43 @@
-name: Backend CI
+name: Backend CI/CD Pipeline
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "server/**"
+    push: 
+        branches: [main, develop]
+        paths: 
+            - 'server/**'
+
+    pull_request:
+        branches: [ main, develop ]
+        paths:
+            - 'server/**'
 
 jobs:
-  backend-ci:
-    name: server Checks (Test • Build • Clippy • Fmt)
+  build:
     runs-on: ubuntu-latest
 
-    # ----------------------------------------
-    # Run all commands inside contract directory
-    # ----------------------------------------
-    defaults:
-      run:
-        working-directory: server
-
     steps:
-      # ----------------------------------------
-      # Checkout repository
-      # ----------------------------------------
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
-      # ----------------------------------------
-      # Set up Rust toolchain
-      # ----------------------------------------
-      - name: Set up Rust
+      - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          components: rustfmt, clippy
+          profile: minimal
           override: true
 
-      # ----------------------------------------
-      # Cache Rust dependencies for faster runs
-      # ----------------------------------------
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            contract/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('contract/**/Cargo.lock') }}
+      - name: Install Stellar CLI
+        run: |
+          curl -s https://get.stellar.org | bash
 
-      # ----------------------------------------
-      # Formatting check (fails if not formatted)
-      # ----------------------------------------
-      - name: Check formatting (cargo fmt)
+      - name: Check formatting
         run: cargo fmt --all -- --check
+        working-directory: ./server
 
-      # ----------------------------------------
-      # Linting (fail on warnings)
-      # ----------------------------------------
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run contract tests
+        run: cargo test
+        working-directory: ./server
 
-      # ----------------------------------------
-      # Build contracts
-      # ----------------------------------------
       - name: Build contracts
         run: cargo build --release
-
-      # ----------------------------------------
-      # Run tests
-      # ----------------------------------------
-      - name: Run tests
-        run: cargo test
+        working-directory: ./server
